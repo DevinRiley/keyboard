@@ -1,0 +1,73 @@
+<html>
+  <head>
+    <style>
+      .keyboard {
+        height: 500px;
+        min-width: 700px;
+        max-width: 900px;
+        margin: 0 auto;
+        width: 100%;
+        border: 3px solid black;
+      }
+
+      .key {
+        outline: 1px solid black;
+        display: inline-block;
+        float: left;
+        margin: 0;
+        padding: 0;
+        position: relative;
+        width: 14.28%;
+        height: 100%;
+      }
+
+      .white-key {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+      }
+
+      .black-key {
+        top: 0;
+        right: -30%;
+        background: black;
+        position: absolute;
+        height: 80%;
+        width: 60%;
+        z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="keyboard">
+      <div class="key">
+        <span class="white-key"></span>
+        <span class="black-key"></span>
+      </div>
+      <div class="key">
+        <span class="white-key"></span>
+        <span class="black-key"></span>
+      </div>
+      <div class="key">
+        <span class="white-key"></span>
+      </div>
+      <div class="key">
+        <span class="white-key"></span>
+        <span class="black-key"></span>
+      </div>
+      <div class="key">
+        <span class="white-key"></span>
+        <span class="black-key"></span>
+      </div>
+      <div class="key">
+        <span class="white-key"></span>
+        <span class="black-key"></span>
+      </div>
+      <div class="key">
+        <span class="white-key"></span>
+      </div>
+    </div>
+  </body>
+</html>
