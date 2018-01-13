@@ -1,6 +1,9 @@
 <html>
   <head>
     <style>
+      body {
+        background: gray;
+      }
       .keyboard {
         height: 500px;
         min-width: 700px;
@@ -38,9 +41,67 @@
         width: 60%;
         z-index: 1;
       }
+
+      .new-keyboard {
+        border: 3px solid black;
+        height: 500px;
+        min-width: 700px;
+        max-width: 900px;
+        margin: 0 auto;
+        position: relative;
+        width: 100%;
+      }
+
+
+      .new-white-key {
+        background: white;
+        box-sizing: border-box;
+        float: left;
+        outline: 1px solid black;
+        margin: 0;
+        padding: 0;
+        position: relative;
+        width: 14.28%;
+        height: 100%;
+      }
+
+      .new-black-key {
+        background: black;
+        float: left;
+        margin-left: -40px;
+        outline: 1px solid black;
+        padding: 0;
+        position: relative;
+        width: 80px;
+        height: 80%;
+        vertical-align: top;
+        z-index: 1;
+      }
+
+      .new-black-key + .new-white-key {
+          margin-left: -40px;
+      }
+
     </style>
   </head>
   <body>
+    <div class="new-keyboard">
+      <div class="new-white-key"></div>
+      <div class="new-black-key"></div>
+      <div class="new-white-key"></div>
+      <div class="new-black-key"></div>
+      <div class="new-white-key"></div>
+      <div class="new-white-key"></div>
+      <div class="new-black-key"></div>
+      <div class="new-white-key"></div>
+      <div class="new-black-key"></div>
+      <div class="new-white-key"></div>
+      <div class="new-black-key"></div>
+      <div class="new-white-key"></div>
+    </div>
+
+    <br>
+
     <div class="keyboard">
       <div class="key">
         <span class="white-key"></span>
