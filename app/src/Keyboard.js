@@ -63,41 +63,65 @@ class Keyboard extends Component {
 
     // This binding is necessary to make `this` work in the callback
     this.handleKeyDown = this.handleKeyDown.bind(this);
+    this.handleKeyUp = this.handleKeyUp.bind(this);
     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
 
   componentWillMount() {
     document.addEventListener("keydown", this.handleKeyDown, false);
+    document.addEventListener("keyup", this.handleKeyUp, false);
   }
 
   componentWillUnmount() {
     document.removeEventListener("keydown", this.handleKeyDown, false);
+    document.removeEventListener("keyup", this.handleKeyUp, false);
+  }
+
+  isAlreadyPlaying(note) {
+    let playing;
+
+    this.state.notes.forEach((noteState, index) => {
+      if (noteState.name === note) {
+        playing = noteState.playing;
+        return;
+      }
+    });
+
+    return playing;
   }
 
   handleKeyDown(e) {
     const note = this.getNoteFromKeypress(e.key);
-    this.updateNotesState(note);
-    this.play(this.getFrequencyForNote(note));
+    // return early if note is already playing, since keydown event is fired
+    // repeatedly while holding down a key
+    if (this.isAlreadyPlaying(note)) return
+
+    const gain = this.play(this.getFrequencyForNote(note));
+    this.updateNotesState(note, gain);
   }
 
-  updateNotesState(note) {
+  handleKeyUp(e) {
+    const note = this.getNoteFromKeypress(e.key);
+    this.updateNotesState(note, null);
+  }
+
+  updateNotesState(note, gain) {
     const notes = this.state.notes.slice(0);
 
-    notes.forEach((noteState, index) => {
+    notes.forEach((noteState) => {
       if (noteState.name === note) {
-        notes[index].playing = true;
+        if (gain === null) {
+          // fade out
+          noteState.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 0.5);
+        }
+
+        noteState.gain = gain;
+        noteState.playing = !noteState.playing;
+        return;
       }
     });
-    this.setState({ notes: notes });
 
-    window.setTimeout(() => {
-      notes.forEach((noteState, index) => {
-        if (noteState.name === note) {
-          notes[index].playing = false;
-        }
-      });
-      this.setState({ notes: notes });
-    }, 500);
+    this.setState({ notes: notes });
   }
 
   getFrequencyForNote(note) {
@@ -150,7 +174,8 @@ class Keyboard extends Component {
     oscillator.frequency.value = frequency; // value in hertz
     
     oscillator.start();
-    oscillator.stop(this.audioCtx.currentTime + 0.5);
+
+    return gainNode.gain;
   }
 
   renderKeys() {
