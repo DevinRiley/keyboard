@@ -1,70 +1,31 @@
 import React, { Component } from 'react';
 import Key from './Key.js';
 
+const MIDDLE_C = 60
+const KEYS = ['a','w','s','e','d','f','t','g','y','h','u','j','k']
 class Keyboard extends Component {
+
   constructor(props) {
     super(props);
-    this.state = {
-      notes: [
-        {
-          name: 'C4',
-          playing: false
-        },
-        {
-          name: 'C#4',
-          playing: false
-        },
-        {
-          name: 'D4',
-          playing: false
-        },
-        {
-          name: 'D#4',
-          playing: false
-        },
-        {
-          name: 'E4',
-          playing: false
-        },
-        {
-          name: 'F4',
-          playing: false
-        },
-        {
-          name: 'F#4', 
-          playing:  false
-        },
-        {
-          name: 'G4',
-          playing: false
-        },
-        {
-          name: 'G#4',
-          playing:  false
-        },
-        {
-          name: 'A4',
-          playing: false
-        },
-        {
-          name: 'A#4',
-          playing:  false
-        },
-        {
-          name: 'B4',
-          playing: false
-        },
-        {
-          name: 'C5',
-          playing: false
-        }
-      ]
-    }
-
+    this.state = {};
+    this.state = this.resetState(MIDDLE_C);
+    console.log("state: ", this.state);
     // This binding is necessary to make `this` work in the callback
     this.handleKeyDown = this.handleKeyDown.bind(this);
     this.handleKeyUp = this.handleKeyUp.bind(this);
     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  buildNotes() {
+    let notes = [];
+    for (let i = 0; i < 13; i++) {
+      notes.push({
+        value: MIDDLE_C + i,
+        playing: false
+      })
+    }
+
+    return notes;
   }
 
   componentWillMount() {
@@ -81,7 +42,7 @@ class Keyboard extends Component {
     let playing;
 
     this.state.notes.forEach((noteState, index) => {
-      if (noteState.name === note) {
+      if (noteState.value === note) {
         playing = noteState.playing;
         return;
       }
@@ -92,75 +53,85 @@ class Keyboard extends Component {
 
   handleKeyDown(e) {
     const note = this.getNoteFromKeypress(e.key);
-    // return early if note is already playing, since keydown event is fired
-    // repeatedly while holding down a key
-    if (this.isAlreadyPlaying(note)) return
 
-    const gain = this.play(this.getFrequencyForNote(note));
-    this.updateNotesState(note, gain);
+    // Check if note is already playing. This is required because 
+    // the keydown event is fired repeatedly while holding down a key
+    if (note && !this.isAlreadyPlaying(note)) { 
+      const gain = this.play(this.frequencyOfNote(note));
+      this.updateNotesState(note, gain);
+    }
+  }
+
+  getOctaveFromKeypress(key) {
+    switch(key) {
+      case 'z': return (this.state.notes[0].value - 12);
+      case 'x': return (this.state.notes[0].value + 12);
+      default: return null
+    }
   }
 
   handleKeyUp(e) {
     const note = this.getNoteFromKeypress(e.key);
-    this.updateNotesState(note, null);
+    const noteState = this.state.notes.find(n => n.value == note );
+    const playing = noteState ? noteState.playing : false;
+
+    const octave = this.getOctaveFromKeypress(e.key);
+    if (octave) {
+      this.setState(this.resetState(octave));
+    } else if (note && playing) {
+      this.updateNotesState(note, null);
+    }
   }
 
   updateNotesState(note, gain) {
     const notes = this.state.notes.slice(0);
+    const values = notes.map(n => n.value);
 
-    notes.forEach((noteState) => {
-      if (noteState.name === note) {
-        if (gain === null) {
-          // fade out
-          noteState.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 0.5);
-        }
+    if (values.includes(note))  {
+      const noteState = notes[values.indexOf(note)];
 
-        noteState.gain = gain;
-        noteState.playing = !noteState.playing;
-        return;
+      if (gain === null && noteState.gain) {
+        noteState.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 1.5); // fade out
       }
-    });
+
+      noteState.gain = gain;
+      noteState.playing = !noteState.playing;
+    } else {
+      notes.push({ value: note, playing: true, gain: gain });
+    }
 
     this.setState({ notes: notes });
   }
 
-  getFrequencyForNote(note) {
-    // note frequencies taken from http://www.sengpielaudio.com/calculator-notenames.htm
-    switch(note) {
-      case 'C4':  return 261.626;
-      case 'C#4': return 277.183;
-      case 'D4':  return 293.665;
-      case 'D#4': return 311.127;
-      case 'E4':  return 329.628;
-      case 'F4':  return 349.228;
-      case 'F#4': return 369.994;
-      case 'G4':  return 391.995;
-      case 'G#4': return 415.305;
-      case 'A4':  return 440.000;
-      case 'A#4': return 466.164;
-      case 'B4':  return 493.883;
-      case 'C5':  return 523.251;
-      default:    return null;
+  resetState(c) {
+    let notes;
+    if (this.state.notes) {
+      notes = this.state.notes.slice(0);
+    } else {
+      notes = this.buildNotes();
     }
+
+    notes.forEach(note => note.playing && note.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 1.5));
+
+    const newNotes = notes.map((_, index) => {
+      return {
+        value: c + index,
+        playing: false
+      }
+    })
+
+    return { notes: newNotes }
+  }
+
+  frequencyOfNote(note) {
+    // frequency calculation from https://github.com/danigb/note-parser/blob/7d790602e9d0bb103829125c48a67619acb74368/index.js#L9
+    return Math.pow(2, (note - 69) / 12) * 440
   }
 
   getNoteFromKeypress(key) {
-    switch(key) {
-      case 'a': return 'C4';
-      case 'w': return 'C#4';
-      case 's': return 'D4';
-      case 'e': return 'D#4';
-      case 'd': return 'E4';
-      case 'f': return 'F4';
-      case 't': return 'F#4';
-      case 'g': return 'G4';
-      case 'y': return 'G#4';
-      case 'h': return 'A4';
-      case 'u': return 'A#4';
-      case 'j': return 'B4';
-      case 'k': return 'C5';
-      default:  return null;
-    }
+    if (!KEYS.includes(key)) return null;
+
+    return this.state.notes.map(note => note.value)[KEYS.indexOf(key)];
   }
 
   play(frequency) {
@@ -170,7 +141,7 @@ class Keyboard extends Component {
     let gainNode = this.audioCtx.createGain();
     oscillator.connect(gainNode);
     gainNode.connect(this.audioCtx.destination);
-    oscillator.type = 'triangle'; // sine wave — other values are 'square', 'sawtooth', 'triangle' and 'custom'
+    oscillator.type = 'triangle'; // triangle wave — other values are 'square', 'sawtooth', 'sine' and 'custom'
     oscillator.frequency.value = frequency; // value in hertz
     
     oscillator.start();
@@ -181,8 +152,8 @@ class Keyboard extends Component {
   renderKeys() {
     return this.state.notes.slice(0,-1).map(note =>
       <Key
-        key={note.name}
-        color={note.name.match(/#/) ? 'black' : 'white'}
+        key={note.value}
+        color={[1,3,6,8,10].includes(note.value % 12) ? 'black' : 'white'}
         pressed={note.playing}
       />
     );
