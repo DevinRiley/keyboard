@@ -2,14 +2,13 @@ import React, { Component } from 'react';
 import Key from './Key.js';
 
 const MIDDLE_C = 60
-const KEYS = ['a','w','s','e','d','f','t','g','y','h','u','j','k']
+const KEYBOARD_KEYS = ['a','w','s','e','d','f','t','g','y','h','u','j','k']
+const OCTAVE_KEYS = ['z', 'x']
 class Keyboard extends Component {
 
   constructor(props) {
     super(props);
-    this.state = {};
-    this.state = this.resetState(MIDDLE_C);
-    console.log("state: ", this.state);
+    this.state = this.freshNotesState(MIDDLE_C);
     // This binding is necessary to make `this` work in the callback
     this.handleKeyDown = this.handleKeyDown.bind(this);
     this.handleKeyUp = this.handleKeyUp.bind(this);
@@ -52,14 +51,8 @@ class Keyboard extends Component {
   }
 
   handleKeyDown(e) {
-    const note = this.getNoteFromKeypress(e.key);
-
-    // Check if note is already playing. This is required because 
-    // the keydown event is fired repeatedly while holding down a key
-    if (note && !this.isAlreadyPlaying(note)) { 
-      const gain = this.play(this.frequencyOfNote(note));
-      this.updateNotesState(note, gain);
-    }
+    const { [e.key]: handler = ()=>{} } = this.keyDownMap();
+    handler(e.key)
   }
 
   getOctaveFromKeypress(key) {
@@ -71,47 +64,67 @@ class Keyboard extends Component {
   }
 
   handleKeyUp(e) {
-    const note = this.getNoteFromKeypress(e.key);
-    const noteState = this.state.notes.find(n => n.value == note );
-    const playing = noteState ? noteState.playing : false;
-
-    const octave = this.getOctaveFromKeypress(e.key);
-    if (octave) {
-      this.setState(this.resetState(octave));
-    } else if (note && playing) {
-      this.updateNotesState(note, null);
-    }
+    // this goofy line just destructures the function for the key press
+    // from a map and defaults to a no-op function
+    const { [e.key]: handler = ()=>{} } = this.keyUpMap();
+    handler(e.key)
   }
 
-  updateNotesState(note, gain) {
+  keyUpMap() {
+    let map = {};
+
+    KEYBOARD_KEYS.forEach(key => map[key] = this.stopNote.bind(this))
+    OCTAVE_KEYS.forEach(key => map[key] = this.changeOctave.bind(this))
+
+    return map
+  }
+
+  keyDownMap() {
+    let map = {};
+
+    KEYBOARD_KEYS.forEach(key => map[key] = this.startNote.bind(this))
+
+    return map
+  }
+
+  startNote(key) {
+    const note = this.getNoteFromKeypress(key)
+
+    if (this.isAlreadyPlaying(note)) return
+
+    const gain = this.play(this.frequencyOfNote(note));
+    this.updateNotesState(note, gain);
+  }
+  
+  stopNote(key) {
+    this.updateNotesState(this.getNoteFromKeypress(key))
+  }
+
+  changeOctave(key) {
+    this.setState(this.freshNotesState(this.getOctaveFromKeypress(key)))
+  }
+
+  updateNotesState(note, gain = null) {
     const notes = this.state.notes.slice(0);
     const values = notes.map(n => n.value);
+    const noteState = notes[values.indexOf(note)];
 
-    if (values.includes(note))  {
-      const noteState = notes[values.indexOf(note)];
-
-      if (gain === null && noteState.gain) {
-        noteState.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 1.5); // fade out
-      }
-
-      noteState.gain = gain;
-      noteState.playing = !noteState.playing;
-    } else {
-      notes.push({ value: note, playing: true, gain: gain });
-    }
+    if (gain === null) this.fadeOut(noteState.gain);
+    noteState.gain = gain;
+    noteState.playing = !noteState.playing;
 
     this.setState({ notes: notes });
   }
 
-  resetState(c) {
+  freshNotesState(c) {
     let notes;
-    if (this.state.notes) {
+    if (this.state && this.state.notes) {
       notes = this.state.notes.slice(0);
     } else {
       notes = this.buildNotes();
     }
 
-    notes.forEach(note => note.playing && note.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 1.5));
+    notes.forEach(note => note.playing && this.fadeOut(note.gain));
 
     const newNotes = notes.map((_, index) => {
       return {
@@ -128,10 +141,14 @@ class Keyboard extends Component {
     return Math.pow(2, (note - 69) / 12) * 440
   }
 
-  getNoteFromKeypress(key) {
-    if (!KEYS.includes(key)) return null;
+  fadeOut(gain) {
+    gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 1.5);
+  }
 
-    return this.state.notes.map(note => note.value)[KEYS.indexOf(key)];
+  getNoteFromKeypress(key) {
+    if (!KEYBOARD_KEYS.includes(key)) return null;
+
+    return this.state.notes.map(note => note.value)[KEYBOARD_KEYS.indexOf(key)];
   }
 
   play(frequency) {
@@ -150,7 +167,7 @@ class Keyboard extends Component {
   }
 
   renderKeys() {
-    return this.state.notes.slice(0,-1).map(note =>
+    return this.state.notes.map(note =>
       <Key
         key={note.value}
         color={[1,3,6,8,10].includes(note.value % 12) ? 'black' : 'white'}
